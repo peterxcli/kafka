@@ -386,7 +386,25 @@ public class StreamThread extends Thread implements ProcessingThread {
         referenceContainer.time = time;
         referenceContainer.clientTags = config.getClientTags();
 
-        log.info("Creating restore consumer client");
+        final ThreadCache cache = new ThreadCache(logContext, cacheSizeBytes, streamsMetrics);
+
+        final StreamThread streamThread = new StreamThread(
+            time,
+            config,
+            adminClient,
+            streamsMetrics,
+            topologyMetadata,
+            threadId,
+            logContext,
+            referenceContainer.assignmentErrorCode,
+            referenceContainer.nextScheduledRebalanceMs,
+            referenceContainer.nonFatalExceptionsToHandle,
+            shutdownErrorHook,
+            streamsUncaughtExceptionHandler,
+            cache::resize
+        );
+
+        streamThread.log.info("Creating restore consumer client");
         final Map<String, Object> restoreConsumerConfigs = config.getRestoreConsumerConfigs(restoreConsumerClientId(restorationThreadId));
         final Consumer<byte[], byte[]> restoreConsumer = clientSupplier.getRestoreConsumer(restoreConsumerConfigs);
 
@@ -399,8 +417,6 @@ public class StreamThread extends Thread implements ProcessingThread {
             userStateRestoreListener,
             userStandbyUpdateListener
         );
-
-        final ThreadCache cache = new ThreadCache(logContext, cacheSizeBytes, streamsMetrics);
 
         final boolean proceessingThreadsEnabled = InternalConfig.processingThreadsEnabled(config.originals());
         final ActiveTaskCreator activeTaskCreator = new ActiveTaskCreator(
@@ -464,7 +480,7 @@ public class StreamThread extends Thread implements ProcessingThread {
         );
         referenceContainer.taskManager = taskManager;
 
-        log.info("Creating consumer client");
+        streamThread.log.info("Creating consumer client");
         final String applicationId = config.getString(StreamsConfig.APPLICATION_ID_CONFIG);
         final Map<String, Object> consumerConfigs = config.getMainConsumerConfigs(applicationId, consumerClientId(threadId), threadIdx);
         consumerConfigs.put(StreamsConfig.InternalConfig.REFERENCE_CONTAINER_PARTITION_ASSIGNOR, referenceContainer);
@@ -482,27 +498,45 @@ public class StreamThread extends Thread implements ProcessingThread {
         final StreamsThreadMetricsDelegatingReporter reporter = new StreamsThreadMetricsDelegatingReporter(mainConsumer, threadId, stateUpdaterId);
         streamsMetrics.metricsRegistry().addReporter(reporter);
 
-        final StreamThread streamThread = new StreamThread(
-            time,
-            config,
-            adminClient,
+        streamThread.initializeComponents(
             mainConsumer,
             restoreConsumer,
             changelogReader,
             originalReset,
             taskManager,
-            stateUpdater,
-            streamsMetrics,
-            topologyMetadata,
-            threadId,
-            logContext,
-            referenceContainer.assignmentErrorCode,
-            referenceContainer.nextScheduledRebalanceMs,
-            referenceContainer.nonFatalExceptionsToHandle,
-            shutdownErrorHook,
-            streamsUncaughtExceptionHandler,
-            cache::resize
+            stateUpdater
         );
+
+        // final StreamThread streamThread = new StreamThread(
+        //     time,
+        //     config,
+        //     adminClient,
+        //     mainConsumer,
+        //     restoreConsumer,
+        //     changelogReader,
+        //     originalReset,
+        //     taskManager,
+        //     stateUpdater,
+        //     streamsMetrics,
+        //     topologyMetadata,
+        //     threadId,
+        //     logContext,
+        //     referenceContainer.assignmentErrorCode,
+        //     referenceContainer.nextScheduledRebalanceMs,
+        //     referenceContainer.nonFatalExceptionsToHandle,
+        //     shutdownErrorHook,
+        //     streamsUncaughtExceptionHandler,
+        //     cache::resize
+        // );
+
+        // streamThread.initializeComponents(
+        //     mainConsumer,
+        //     restoreConsumer,
+        //     changelogReader,
+        //     originalReset,
+        //     taskManager,
+        //     stateUpdater
+        // );
 
         return streamThread.updateThreadMetadata(adminClientId(clientId));
     }
@@ -563,12 +597,12 @@ public class StreamThread extends Thread implements ProcessingThread {
     public StreamThread(final Time time,
                         final StreamsConfig config,
                         final Admin adminClient,
-                        final Consumer<byte[], byte[]> mainConsumer,
-                        final Consumer<byte[], byte[]> restoreConsumer,
-                        final ChangelogReader changelogReader,
-                        final String originalReset,
-                        final TaskManager taskManager,
-                        final StateUpdater stateUpdater,
+                        // final Consumer<byte[], byte[]> mainConsumer,
+                        // final Consumer<byte[], byte[]> restoreConsumer,
+                        // final ChangelogReader changelogReader,
+                        // final String originalReset,
+                        // final TaskManager taskManager,
+                        // final StateUpdater stateUpdater,
                         final StreamsMetricsImpl streamsMetrics,
                         final TopologyMetadata topologyMetadata,
                         final String threadId,
@@ -622,31 +656,31 @@ public class StreamThread extends Thread implements ProcessingThread {
             threadId,
             streamsMetrics,
             (metricConfig, now) -> this.state());
-        ThreadMetrics.addThreadBlockedTimeMetric(
-            threadId,
-            new StreamThreadTotalBlockedTime(
-                mainConsumer,
-                restoreConsumer,
-                taskManager::totalProducerBlockedTime
-            ),
-            streamsMetrics
-        );
+        // ThreadMetrics.addThreadBlockedTimeMetric(
+        //     threadId,
+        //     new StreamThreadTotalBlockedTime(
+        //         mainConsumer,
+        //         restoreConsumer,
+        //         taskManager::totalProducerBlockedTime
+        //     ),
+        //     streamsMetrics
+        // );
 
         this.time = time;
         this.topologyMetadata = topologyMetadata;
         this.topologyMetadata.registerThread(getName());
         this.logPrefix = logContext.logPrefix();
         this.log = logContext.logger(StreamThread.class);
-        this.rebalanceListener = new StreamsRebalanceListener(time, taskManager, this, this.log, this.assignmentErrorCode);
-        this.taskManager = taskManager;
-        this.stateUpdater = stateUpdater;
-        this.restoreConsumer = restoreConsumer;
-        this.mainConsumer = mainConsumer;
-        this.changelogReader = changelogReader;
-        this.originalReset = originalReset;
+        // this.rebalanceListener = new StreamsRebalanceListener(time, taskManager, this, this.log, this.assignmentErrorCode);
+        // this.taskManager = taskManager;
+        // this.stateUpdater = stateUpdater;
+        // this.restoreConsumer = restoreConsumer;
+        // this.mainConsumer = mainConsumer;
+        // this.changelogReader = changelogReader;
+        // this.originalReset = originalReset;
         this.nextProbingRebalanceMs = nextProbingRebalanceMs;
         this.nonFatalExceptionsToHandle = nonFatalExceptionsToHandle;
-        this.groupInstanceID = mainConsumer.groupMetadata().groupInstanceId();
+        // this.groupInstanceID = mainConsumer.groupMetadata().groupInstanceId();
 
         this.pollTime = Duration.ofMillis(config.getLong(StreamsConfig.POLL_MS_CONFIG));
         final int dummyThreadIdx = 1;
@@ -660,6 +694,33 @@ public class StreamThread extends Thread implements ProcessingThread {
         this.stateUpdaterEnabled = InternalConfig.stateUpdaterEnabled(config.originals());
         this.processingThreadsEnabled = InternalConfig.processingThreadsEnabled(config.originals());
         this.logSummaryIntervalMs = config.getLong(StreamsConfig.LOG_SUMMARY_INTERVAL_MS_CONFIG);
+    }
+
+    @SuppressWarnings("this-escape")
+    public void initializeComponents(final Consumer<byte[], byte[]> mainConsumer,
+                                    final Consumer<byte[], byte[]> restoreConsumer,
+                                    final ChangelogReader changelogReader,
+                                    final String originalReset,
+                                    final TaskManager taskManager,
+                                    final StateUpdater stateUpdater) {
+        ThreadMetrics.addThreadBlockedTimeMetric(
+            getName(),
+            new StreamThreadTotalBlockedTime(
+                mainConsumer,
+                restoreConsumer,
+                taskManager::totalProducerBlockedTime
+            ),
+            streamsMetrics
+        );
+
+        this.rebalanceListener = new StreamsRebalanceListener(time, taskManager, this, this.log, this.assignmentErrorCode);
+        this.taskManager = taskManager;
+        this.stateUpdater = stateUpdater;
+        this.restoreConsumer = restoreConsumer;
+        this.mainConsumer = mainConsumer;
+        this.changelogReader = changelogReader;
+        this.originalReset = originalReset;
+        this.groupInstanceID = mainConsumer.groupMetadata().groupInstanceId();
     }
 
     private static final class InternalConsumerConfig extends ConsumerConfig {
