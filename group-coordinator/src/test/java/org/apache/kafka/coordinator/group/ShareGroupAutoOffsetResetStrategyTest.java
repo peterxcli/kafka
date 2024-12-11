@@ -112,3 +112,4 @@ public class ShareGroupAutoOffsetResetStrategyTest {
         assertNotEquals(byDuration1, byDuration3);
     }
 }
+
