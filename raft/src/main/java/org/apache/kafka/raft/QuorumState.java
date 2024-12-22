@@ -159,7 +159,8 @@ public class QuorumState {
                 partitionState.lastVoterSet().voterIds(),
                 Optional.empty(),
                 randomElectionTimeoutMs(),
-                logContext
+                logContext,
+                false
             );
         } else if (localId.isPresent() && election.isLeader(localId.getAsInt())) {
             // If we were previously a leader, then we will start out as resigned
@@ -202,7 +203,8 @@ public class QuorumState {
                 partitionState.lastVoterSet().voterIds(),
                 Optional.empty(),
                 randomElectionTimeoutMs(),
-                logContext
+                logContext,
+                false
             );
         } else if (election.hasLeader()) {
             VoterSet voters = partitionState.lastVoterSet();
@@ -230,7 +232,8 @@ public class QuorumState {
                     partitionState.lastVoterSet().voterIds(),
                     Optional.empty(),
                     randomElectionTimeoutMs(),
-                    logContext
+                    logContext,
+                    false
                 );
             } else {
                 initialState = new FollowerState(
@@ -241,7 +244,8 @@ public class QuorumState {
                     voters.voterIds(),
                     Optional.empty(),
                     fetchTimeoutMs,
-                    logContext
+                    logContext,
+                    false
                 );
             }
         } else {
@@ -253,7 +257,8 @@ public class QuorumState {
                 partitionState.lastVoterSet().voterIds(),
                 Optional.empty(),
                 randomElectionTimeoutMs(),
-                logContext
+                logContext,
+                false
             );
         }
 
@@ -397,7 +402,39 @@ public class QuorumState {
             partitionState.lastVoterSet().voterIds(),
             state.highWatermark(),
             electionTimeoutMs,
-            logContext
+            logContext,
+            false
+        ));
+    }
+
+    public void transitionToUnattachedFromEndQuorumEpoch(int epoch) {
+        int currentEpoch = state.epoch();
+        if (epoch <= currentEpoch) {
+            throw new IllegalStateException("Cannot transition to Unattached with epoch= " + epoch +
+                " from current state " + state);
+        }
+
+        final long electionTimeoutMs;
+        if (isObserver()) {
+            electionTimeoutMs = Long.MAX_VALUE;
+        } else if (isCandidate()) {
+            electionTimeoutMs = candidateStateOrThrow().remainingElectionTimeMs(time.milliseconds());
+        } else if (isUnattached()) {
+            electionTimeoutMs = unattachedStateOrThrow().remainingElectionTimeMs(time.milliseconds());
+        } else {
+            electionTimeoutMs = randomElectionTimeoutMs();
+        }
+
+        durableTransitionTo(new UnattachedState(
+            time,
+            epoch,
+            OptionalInt.empty(),
+            Optional.empty(),
+            partitionState.lastVoterSet().voterIds(),
+            state.highWatermark(),
+            electionTimeoutMs,
+            logContext,
+            true
         ));
     }
 
@@ -455,7 +492,8 @@ public class QuorumState {
                 partitionState.lastVoterSet().voterIds(),
                 state.highWatermark(),
                 randomElectionTimeoutMs(),
-                logContext
+                logContext,
+                false
             )
         );
         log.debug("Voted for candidate {} in epoch {}", candidateKey, epoch);
@@ -524,7 +562,8 @@ public class QuorumState {
                 partitionState.lastVoterSet().voterIds(),
                 state.highWatermark(),
                 fetchTimeoutMs,
-                logContext
+                logContext,
+                false
             )
         );
     }

@@ -685,6 +685,12 @@ public final class KafkaRaftClient<T> implements RaftClient<T> {
         resetConnections();
     }
 
+    private void transitionToUnattachedFromEndQuorumEpoch(int epoch) {
+        quorum.transitionToUnattachedFromEndQuorumEpoch(epoch);
+        maybeFireLeaderChange();
+        resetConnections();
+    }
+
     private void transitionToResigned(List<ReplicaKey> preferredSuccessors) {
         fetchPurgatory.completeAllExceptionally(
             Errors.NOT_LEADER_OR_FOLLOWER.exception("Not handling request since this node is resigning"));

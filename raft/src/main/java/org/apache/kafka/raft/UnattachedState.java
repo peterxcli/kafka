@@ -48,6 +48,7 @@ public class UnattachedState implements EpochState {
     private final Timer electionTimer;
     private final Optional<LogOffsetMetadata> highWatermark;
     private final Logger log;
+    private final boolean receivedEndQuorumEpoch;
 
     public UnattachedState(
         Time time,
@@ -57,7 +58,8 @@ public class UnattachedState implements EpochState {
         Set<Integer> voters,
         Optional<LogOffsetMetadata> highWatermark,
         long electionTimeoutMs,
-        LogContext logContext
+        LogContext logContext,
+        boolean receivedEndQuorumEpoch
     ) {
         this.epoch = epoch;
         this.leaderId = leaderId;
@@ -67,6 +69,7 @@ public class UnattachedState implements EpochState {
         this.electionTimeoutMs = electionTimeoutMs;
         this.electionTimer = time.timer(electionTimeoutMs);
         this.log = logContext.logger(UnattachedState.class);
+        this.receivedEndQuorumEpoch = receivedEndQuorumEpoch;
     }
 
     @Override
@@ -121,7 +124,10 @@ public class UnattachedState implements EpochState {
     @Override
     public boolean canGrantVote(ReplicaKey replicaKey, boolean isLogUpToDate, boolean isPreVote) {
         if (isPreVote) {
-            return canGrantPreVote(replicaKey, isLogUpToDate);
+            // Grant PreVotes if we received EndQuorum or based on existing logic
+            if (receivedEndQuorumEpoch || canGrantPreVote(replicaKey, isLogUpToDate)) {
+                return true;
+            }
         } else if (votedKey.isPresent()) {
             ReplicaKey votedReplicaKey = votedKey.get();
             if (votedReplicaKey.id() == replicaKey.id()) {

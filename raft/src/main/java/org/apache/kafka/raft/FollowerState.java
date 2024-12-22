@@ -40,6 +40,7 @@ public class FollowerState implements EpochState {
     /* Used to track if the replica has fetched successfully from the leader at least once since the transition to
      * follower in this epoch. If the replica has not yet fetched successfully, it may be able to grant PreVotes.
      */
+    // TODO: Why we need this?
     private boolean hasFetchedFromLeader;
     private Optional<LogOffsetMetadata> highWatermark;
     /* Used to track the currently fetching snapshot. When fetching snapshot regular
@@ -51,6 +52,8 @@ public class FollowerState implements EpochState {
 
     private final Logger log;
 
+    private final boolean receivedEndQuorumEpoch;
+
     public FollowerState(
         Time time,
         int epoch,
@@ -59,7 +62,8 @@ public class FollowerState implements EpochState {
         Set<Integer> voters,
         Optional<LogOffsetMetadata> highWatermark,
         int fetchTimeoutMs,
-        LogContext logContext
+        LogContext logContext,
+        boolean receivedEndQuorumEpoch
     ) {
         this.fetchTimeoutMs = fetchTimeoutMs;
         this.epoch = epoch;
@@ -71,6 +75,7 @@ public class FollowerState implements EpochState {
         this.highWatermark = highWatermark;
         this.log = logContext.logger(FollowerState.class);
         this.hasFetchedFromLeader = false;
+        this.receivedEndQuorumEpoch = receivedEndQuorumEpoch;
     }
 
     @Override
@@ -209,7 +214,7 @@ public class FollowerState implements EpochState {
 
     @Override
     public boolean canGrantVote(ReplicaKey replicaKey, boolean isLogUpToDate, boolean isPreVote) {
-        if (isPreVote && !hasFetchedFromLeader && isLogUpToDate) {
+        if (isPreVote && (receivedEndQuorumEpoch || !hasFetchedFromLeader) && isLogUpToDate) {
             return true;
         }
         log.debug(
